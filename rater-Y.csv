@@ -1,0 +1,4 @@
+rowId,rowIndex,field,oldValue,newValue,timestamp
+1,0,rating,provide rating,off for sure,2020-01-01T00:00:00.000Z
+2,1,rating,provide rating,off for sure,2020-01-01T00:01:00.000Z
+3,2,rating,provide rating,off for sure,2020-01-01T00:02:00.000Z

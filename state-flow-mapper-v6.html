@@ -1,0 +1,1710 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>State Flow Mapper</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+  :root{
+    --bg:#0F1115;
+    --panel:#171B22;
+    --panel-2:#1D222B;
+    --hairline:#2A2F3A;
+    --hairline-soft:#232833;
+    --text:#EDEFF3;
+    --text-dim:#8A93A3;
+    --text-faint:#5B6472;
+    --start-node:#5B6472;
+    --focus:#4FA3D1;
+    --radius-sm:4px;
+    --radius-md:7px;
+    --font-display:'Space Grotesk', ui-sans-serif, system-ui, -apple-system, sans-serif;
+    --font-body:'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:var(--font-body);
+    display:flex;
+    flex-direction:column;
+    min-height:100vh;
+  }
+
+  /* ---------- Top bar ---------- */
+  .topbar{
+    display:flex;
+    align-items:flex-end;
+    justify-content:space-between;
+    gap:24px;
+    padding:22px 28px 16px;
+    border-bottom:1px solid var(--hairline);
+    flex-wrap:wrap;
+  }
+  .brand h1{
+    font-family:var(--font-display);
+    font-weight:600;
+    font-size:22px;
+    margin:0 0 4px;
+    letter-spacing:0.2px;
+  }
+  .brand p{
+    margin:0;
+    color:var(--text-dim);
+    font-size:13px;
+  }
+  .file-controls{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    flex-wrap:wrap;
+  }
+  .upload-btn{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    background:var(--panel-2);
+    border:1px solid var(--hairline);
+    color:var(--text);
+    font-size:13px;
+    font-family:var(--font-body);
+    padding:8px 14px;
+    border-radius:var(--radius-sm);
+    cursor:pointer;
+    transition:border-color .15s ease, background .15s ease;
+  }
+  .upload-btn:hover{border-color:#3A4150; background:#20262F;}
+  .upload-btn svg{width:14px;height:14px;flex:none;}
+  select#fieldSelect, select#logSelect{
+    background:var(--panel-2);
+    color:var(--text);
+    border:1px solid var(--hairline);
+    padding:8px 10px;
+    border-radius:var(--radius-sm);
+    font-family:var(--font-body);
+    font-size:13px;
+  }
+
+  /* ---------- Controls row ---------- */
+  .controls{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:20px;
+    padding:14px 28px;
+    border-bottom:1px solid var(--hairline);
+    flex-wrap:wrap;
+    row-gap:12px;
+  }
+  .layout-tabs{
+    display:flex;
+    gap:4px;
+    background:var(--panel);
+    padding:4px;
+    border-radius:var(--radius-md);
+    border:1px solid var(--hairline);
+  }
+  .tab{
+    appearance:none;
+    border:none;
+    background:transparent;
+    color:var(--text-dim);
+    font-family:var(--font-body);
+    font-size:13px;
+    font-weight:500;
+    padding:7px 13px;
+    border-radius:5px;
+    cursor:pointer;
+    transition:background .15s ease, color .15s ease;
+    white-space:nowrap;
+  }
+  .tab:hover{color:var(--text);}
+  .tab.active{background:var(--panel-2); color:var(--text); box-shadow:inset 0 0 0 1px var(--hairline);}
+
+  .toggles{display:flex; gap:18px; flex-wrap:wrap;}
+  .toggle-group{display:flex; align-items:center; gap:8px;}
+  .toggle-label{font-size:12px; color:var(--text-faint);}
+  .seg-group{display:flex; border:1px solid var(--hairline); border-radius:var(--radius-sm); overflow:hidden;}
+  .seg{
+    appearance:none; border:none; background:var(--panel);
+    color:var(--text-dim); font-family:var(--font-body);
+    font-size:12.5px; padding:6px 12px; cursor:pointer;
+    transition:background .15s ease, color .15s ease;
+  }
+  .seg + .seg{border-left:1px solid var(--hairline);}
+  .seg:hover{color:var(--text);}
+  .seg.active{background:var(--focus); color:#0B0F14; font-weight:600;}
+  .seg[disabled]{opacity:.35; cursor:not-allowed;}
+  .seg[disabled]:hover{color:var(--text-dim);}
+
+  /* ---------- Pass-cutoff slider ---------- */
+  .pass-slider-panel{
+    display:none;
+    padding:14px 28px 16px;
+    border-bottom:1px solid var(--hairline);
+  }
+  .pass-slider-panel.visible{ display:block; }
+  .pass-slider-header{
+    display:flex; align-items:center; justify-content:space-between;
+    margin-bottom:10px;
+  }
+  .mini-btn{
+    background:var(--panel-2); border:1px solid var(--hairline); color:var(--text-dim);
+    font-family:var(--font-body); font-size:11.5px; padding:5px 10px;
+    border-radius:var(--radius-sm); cursor:pointer; transition:color .15s ease, border-color .15s ease;
+  }
+  .mini-btn:hover{ color:var(--text); border-color:#3A4150; }
+  .mini-btn:disabled{ opacity:.35; cursor:not-allowed; }
+  .pass-slider-track{
+    position:relative; height:26px; border-radius:5px;
+    border:1px solid var(--hairline); overflow:visible;
+    background:var(--panel);
+  }
+  .pass-slider-regions{
+    position:absolute; inset:0; display:flex; border-radius:5px; overflow:hidden;
+  }
+  .pass-region{ height:100%; }
+  .pass-region:nth-child(odd){ background:var(--panel); }
+  .pass-region:nth-child(even){ background:var(--panel-2); }
+  .pass-handle{
+    position:absolute; top:-5px; width:12px; height:36px;
+    background:var(--focus); border-radius:3px; cursor:grab;
+    transform:translateX(-50%);
+    box-shadow:0 0 0 2px var(--bg);
+    touch-action:none;
+  }
+  .pass-handle:active{ cursor:grabbing; }
+  .pass-handle .remove-x{
+    position:absolute; top:-17px; left:50%; transform:translateX(-50%);
+    font-size:12px; line-height:1; color:var(--text-faint); cursor:pointer;
+    display:none; padding:2px;
+  }
+  .pass-handle:hover .remove-x{ display:block; }
+  .pass-handle .remove-x:hover{ color:var(--text); }
+  .pass-slider-labels{
+    display:flex; flex-wrap:wrap; gap:16px; margin-top:9px;
+    font-size:11.5px; color:var(--text-faint);
+  }
+
+  /* ---------- Canvas ---------- */
+  .canvas-wrap{
+    position:relative;
+    flex:1;
+    display:flex;
+    padding:8px 12px 4px;
+    min-height:420px;
+  }
+  #canvas{width:100%; height:100%; display:block;}
+
+  .node-plate{
+    fill:var(--panel-2);
+    stroke:var(--hairline);
+    stroke-width:1;
+  }
+  .node-label{
+    fill:var(--text);
+    font-family:var(--font-body);
+    font-size:12px;
+    font-weight:500;
+  }
+  .node-sub{
+    fill:var(--text-faint);
+    font-size:10px;
+  }
+  .edges-layer path.dim{ opacity:0.05 !important; }
+
+  .tooltip{
+    position:absolute;
+    pointer-events:none;
+    background:var(--panel-2);
+    border:1px solid var(--hairline);
+    color:var(--text);
+    font-size:12.5px;
+    line-height:1.5;
+    padding:9px 12px;
+    border-radius:var(--radius-sm);
+    max-width:260px;
+    box-shadow:0 8px 24px rgba(0,0,0,.35);
+    opacity:0;
+    transition:opacity .1s ease;
+    z-index:20;
+  }
+  .tooltip.visible{opacity:1;}
+  .tooltip b{color:var(--text); font-weight:600;}
+  .tooltip .muted{color:var(--text-dim);}
+
+  /* ---------- Legend / stats footer ---------- */
+  .legend-bar{
+    display:flex;
+    align-items:center;
+    gap:22px;
+    padding:14px 28px;
+    border-top:1px solid var(--hairline);
+    flex-wrap:wrap;
+    font-size:12.5px;
+    color:var(--text-dim);
+  }
+  .legend-swatches{display:flex; gap:16px; flex-wrap:wrap;}
+  .swatch{display:flex; align-items:center; gap:7px;}
+  .swatch .dot-input{
+    -webkit-appearance:none; appearance:none;
+    width:12px; height:12px; flex:none;
+    border:1.5px solid var(--hairline); border-radius:50%;
+    padding:0; background:none; cursor:pointer;
+  }
+  .swatch .dot-input::-webkit-color-swatch-wrapper{ padding:0; border-radius:50%; }
+  .swatch .dot-input::-webkit-color-swatch{ border:none; border-radius:50%; }
+  .swatch .dot-input::-moz-color-swatch{ border:none; border-radius:50%; }
+  .swatch .dot-input.start{ border-style:dashed; border-color:var(--start-node); }
+  .swatch .dot-input:hover{ border-color:var(--focus); }
+  .stats{margin-left:auto; color:var(--text-faint); white-space:nowrap;}
+
+  .empty-note{
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    color:var(--text-faint); font-size:13px; text-align:center; padding:40px;
+  }
+
+  @media (max-width: 720px){
+    .topbar, .controls, .legend-bar{padding-left:16px; padding-right:16px;}
+    .stats{margin-left:0;}
+  }
+</style>
+</head>
+<body>
+
+  <header class="topbar">
+    <div class="brand">
+      <h1>State Flow Mapper</h1>
+      <p id="datasetSummary">Loading sample change log&hellip;</p>
+    </div>
+    <div class="file-controls">
+      <label class="upload-btn">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 10.5V2M8 2L5 5M8 2l3 3"/><path d="M2.5 10.5v2A1.5 1.5 0 0 0 4 14h8a1.5 1.5 0 0 0 1.5-1.5v-2"/></svg>
+        Load CSV(s)
+        <input type="file" id="csvInput" accept=".csv" multiple hidden>
+      </label>
+      <select id="logSelect" style="display:none;"></select>
+      <select id="fieldSelect"></select>
+    </div>
+  </header>
+
+  <div class="controls">
+    <nav class="layout-tabs" id="layoutTabs">
+      <button class="tab active" data-layout="arc">Minimal crossings</button>
+      <button class="tab" data-layout="circular">Circular</button>
+      <button class="tab" data-layout="force">Force-directed</button>
+      <button class="tab" data-layout="timeline">Timeline</button>
+      <button class="tab" data-layout="sankey">Sankey (pass flow)</button>
+    </nav>
+    <div class="toggles">
+      <div class="toggle-group">
+        <span class="toggle-label">Path</span>
+        <div class="seg-group">
+          <button class="seg active" data-path="full">Full</button>
+          <button class="seg" data-path="net">Net</button>
+        </div>
+      </div>
+      <div class="toggle-group">
+        <span class="toggle-label">View</span>
+        <div class="seg-group">
+          <button class="seg active" data-view="individual">Individual</button>
+          <button class="seg" data-view="aggregated">Aggregated</button>
+        </div>
+      </div>
+      <div class="toggle-group" id="mergeModeGroup" style="display:none;" title="How 'All logs combined' orders rows across files">
+        <span class="toggle-label">Merge by</span>
+        <div class="seg-group">
+          <button class="seg" data-merge="timestamp">Timestamp</button>
+          <button class="seg active" data-merge="step">Step</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="pass-slider-panel" id="passSliderPanel">
+    <div class="pass-slider-header">
+      <span class="toggle-label">Pass boundaries — drag to move, × to remove</span>
+      <button class="mini-btn" id="addPassBtn">+ Add boundary</button>
+    </div>
+    <div class="pass-slider-track" id="passSliderTrack">
+      <div class="pass-slider-regions" id="passSliderRegions"></div>
+    </div>
+    <div class="pass-slider-labels" id="passSliderLabels"></div>
+  </div>
+
+  <main class="canvas-wrap">
+    <svg id="canvas" viewBox="0 0 1200 640" preserveAspectRatio="xMidYMid meet"></svg>
+    <div class="tooltip" id="tooltip"></div>
+  </main>
+
+  <footer class="legend-bar" id="legend">
+    <div class="legend-swatches" id="legendSwatches"></div>
+    <button class="mini-btn" id="resetColorsBtn" style="display:none;">Reset colors</button>
+    <div class="stats" id="statsLine"></div>
+  </footer>
+
+<script>
+(function(){
+
+/* ============================================================
+   CONFIG & PALETTE
+   ============================================================ */
+const PALETTE = ['#4FA3D1','#E8A33D','#E8604C','#3FB8AF','#8C6FE0','#A8C25A','#E0538C','#D9C25A','#6FE0C0','#E08C4F'];
+const START_COLOR = '#5B6472';
+const W = 1200, H = 640;
+const MARGIN = {top:70, right:70, bottom:40, left:70};
+
+const svg = d3.select('#canvas');
+const defs = svg.append('defs');
+defs.append('marker')
+  .attr('id','arrow')
+  .attr('viewBox','0 0 10 10')
+  .attr('refX', 8).attr('refY', 5)
+  .attr('markerWidth', 9).attr('markerHeight', 9)
+  .attr('markerUnits','userSpaceOnUse')
+  .attr('orient','auto-start-reverse')
+  .append('path')
+  .attr('d','M0,0 L10,5 L0,10 z')
+  .attr('fill','context-stroke');
+const gEdges = svg.append('g').attr('class','edges-layer');
+const gNodes = svg.append('g').attr('class','nodes-layer');
+const gAxes  = svg.append('g').attr('class','axes-layer');
+const tooltip = d3.select('#tooltip');
+const canvasWrap = document.querySelector('.canvas-wrap');
+
+let state = {
+  raw: [],              // effective parsed rows for the currently active log selection
+  field: null,           // currently selected field
+  fields: [],
+  layout: 'arc',
+  pathMode: 'full',      // 'full' | 'net'
+  viewMode: 'individual', // 'individual' | 'aggregated'
+  model: null,            // built model for current field
+  positions: {},          // current on-screen node positions {id:{x,y}}
+  orderCache: {},         // memoized orderings keyed by log|field|pathMode
+  passCutoffs: [],        // row-index pass boundaries (see computePassSnapshots)
+  datasets: [],           // [{name, rows}] — one entry per uploaded CSV file
+  activeLog: null,        // a dataset name, or COMBINED_KEY
+  mergeMode: 'step',      // 'step' | 'timestamp' — how combined mode orders rows across files
+  usesSyntheticSteps: false, // true when the current effective rows use step-encoded pseudo-time
+  colorOverrides: {}      // {categoryValue: hexColor} — user-picked colors, session-scoped
+};
+
+// Which layouts consume pass cutoffs — the slider panel only shows for these.
+// Future plots (e.g. from multi-CSV work) opt in by adding their layout key here.
+const LAYOUT_USES_PASS_CUTOFFS = { sankey: true };
+const COMBINED_KEY = '__combined_all_logs__';
+
+// "Step" merging: real timestamps aren't a safe join key across raters who
+// worked asynchronously, so as an alternative each rater's own row order
+// (0, 1, 2, ...) is re-encoded as a synthetic timestamp — one second per
+// step, from a fixed epoch — so two raters' Nth change always lines up as
+// the same instant, regardless of when either of them actually happened.
+// Every downstream consumer (record sort, Timeline's time scale, Sankey's
+// row-indexed cutoffs) already sorts/parses via `new Date(timestamp)`, so
+// encoding steps this way means nothing else needs to change to support it.
+const STEP_EPOCH = Date.UTC(2000,0,1,0,0,0);
+function stepTimestamp(stepIndex){ return new Date(STEP_EPOCH + stepIndex*1000).toISOString(); }
+function stepFromTimestamp(ts){ return Math.round((new Date(ts).getTime() - STEP_EPOCH)/1000); }
+function formatTs(ts){
+  return state.usesSyntheticSteps ? ('step ' + stepFromTimestamp(ts)) : new Date(ts).toLocaleTimeString();
+}
+
+/* ============================================================
+   DATA MODEL
+   ============================================================ */
+function buildModel(rows, field){
+  const fieldRows = rows.filter(r => r.field === field);
+
+  // group by rowId (fallback rowIndex)
+  const byRecord = new Map();
+  fieldRows.forEach(r=>{
+    const key = (r.rowId !== undefined && r.rowId !== '') ? r.rowId : r.rowIndex;
+    if(!byRecord.has(key)) byRecord.set(key, []);
+    byRecord.get(key).push(r);
+  });
+
+  const records = [];
+  byRecord.forEach((events, id)=>{
+    events.sort((a,b)=> new Date(a.timestamp) - new Date(b.timestamp));
+    const fullPath = [events[0].oldValue];
+    events.forEach(e=> fullPath.push(e.newValue));
+    const netPath = [fullPath[0], fullPath[fullPath.length-1]];
+    records.push({
+      id, events,
+      fullPath, netPath,
+      firstTs: new Date(events[0].timestamp),
+      lastTs: new Date(events[events.length-1].timestamp)
+    });
+  });
+
+  // node set + destination flag
+  const nodeIds = new Set();
+  const isDestination = new Set();
+  fieldRows.forEach(r=>{
+    nodeIds.add(r.oldValue); nodeIds.add(r.newValue);
+    isDestination.add(r.newValue);
+  });
+
+  // stable color assignment by first-appearance order among non-start nodes
+  const orderSeen = [];
+  fieldRows.forEach(r=>{
+    [r.oldValue, r.newValue].forEach(v=>{ if(!orderSeen.includes(v)) orderSeen.push(v); });
+  });
+
+  const nodes = Array.from(nodeIds).map(id=> ({ id, startOnly: !isDestination.has(id) }))
+    .sort((a,b)=> orderSeen.indexOf(a.id) - orderSeen.indexOf(b.id));
+
+  // defaultColor is the palette-cycled color, independent of any user
+  // override — it's what "reset colors" restores. `color` is what's
+  // actually drawn, and is set from defaultColor (or an override) in
+  // applyColorOverrides(), called right after buildModel() everywhere.
+  let ci = 0;
+  nodes.forEach(n=>{ n.defaultColor = n.startOnly ? START_COLOR : PALETTE[(ci++) % PALETTE.length]; n.color = n.defaultColor; });
+
+  function edgesFor(pathMode){
+    const list = [];
+    records.forEach(rec=>{
+      const path = pathMode === 'full' ? rec.fullPath : rec.netPath;
+      const evs  = pathMode === 'full' ? rec.events   : [rec.events[rec.events.length-1]];
+      for(let i=0;i<path.length-1;i++){
+        const source = path[i], target = path[i+1];
+        if(source === target) continue; // skip degenerate self loop
+        list.push({
+          source, target, recordId: rec.id,
+          timestamp: pathMode === 'full' ? new Date(evs[i].timestamp) : rec.lastTs,
+          hop: i, finalState: rec.netPath[1]
+        });
+      }
+    });
+    return list;
+  }
+
+  function aggregate(edgeList){
+    const map = new Map();
+    edgeList.forEach(e=>{
+      const key = e.source + '\u2192' + e.target;
+      if(!map.has(key)) map.set(key, {source:e.source, target:e.target, count:0, records:[]});
+      const g = map.get(key);
+      g.count++;
+      g.records.push(e.recordId);
+    });
+    return Array.from(map.values());
+  }
+
+  const fullEdges = edgesFor('full');
+  const netEdges = edgesFor('net');
+
+  return {
+    field, records, nodes, fieldRows,
+    fullEdges, netEdges,
+    fullEdgesAgg: aggregate(fullEdges),
+    netEdgesAgg: aggregate(netEdges),
+    minTs: d3.min(records, r=>r.firstTs),
+    maxTs: d3.max(records, r=>r.lastTs)
+  };
+}
+
+/* ============================================================
+   CROSSING-MINIMIZATION ORDERING
+   ============================================================ */
+function uniquePairs(edgeListAgg){
+  const seen = new Map();
+  edgeListAgg.forEach(e=>{
+    if(e.source===e.target) return;
+    const key = [e.source,e.target].sort().join('\u2192');
+    if(!seen.has(key)) seen.set(key, [e.source, e.target]);
+  });
+  return Array.from(seen.values());
+}
+
+function countCrossings(idx, pairs){
+  let count = 0;
+  for(let a=0;a<pairs.length;a++){
+    let [s1,t1] = pairs[a];
+    let i1 = idx.get(s1), j1 = idx.get(t1);
+    if(i1>j1) [i1,j1]=[j1,i1];
+    for(let b=a+1;b<pairs.length;b++){
+      let [s2,t2] = pairs[b];
+      let i2 = idx.get(s2), j2 = idx.get(t2);
+      if(i2>j2) [i2,j2]=[j2,i2];
+      const between1 = i2>i1 && i2<j1;
+      const between2 = j2>i1 && j2<j1;
+      if(between1 !== between2) count++;
+    }
+  }
+  return count;
+}
+
+function permute(arr, cb){
+  const a = arr.slice();
+  const n = a.length;
+  const c = new Array(n).fill(0);
+  cb(a.slice());
+  let i=0;
+  while(i<n){
+    if(c[i] < i){
+      if(i % 2 === 0){ const t=a[0]; a[0]=a[i]; a[i]=t; }
+      else { const t=a[c[i]]; a[c[i]]=a[i]; a[i]=t; }
+      cb(a.slice());
+      c[i]++;
+      i=0;
+    } else { c[i]=0; i++; }
+  }
+}
+
+function bestOrder(nodeIds, pairs){
+  const n = nodeIds.length;
+  if(n <= 2) return nodeIds.slice();
+  if(n <= 8){
+    let best = nodeIds.slice(), bestScore = Infinity;
+    permute(nodeIds, perm=>{
+      const idx = new Map(perm.map((id,i)=>[id,i]));
+      const score = countCrossings(idx, pairs);
+      if(score < bestScore){ bestScore = score; best = perm; }
+    });
+    return best;
+  }
+  // hill-climb for larger graphs
+  let order = nodeIds.slice();
+  for(let i=order.length-1;i>0;i--){ const j = Math.floor(Math.random()*(i+1)); [order[i],order[j]]=[order[j],order[i]]; }
+  let idx = new Map(order.map((id,i)=>[id,i]));
+  let bestScore = countCrossings(idx, pairs);
+  let best = order.slice();
+  for(let iter=0; iter<4000; iter++){
+    const i = Math.floor(Math.random()*order.length);
+    const j = Math.floor(Math.random()*order.length);
+    if(i===j) continue;
+    [order[i],order[j]] = [order[j],order[i]];
+    idx = new Map(order.map((id,k)=>[id,k]));
+    const score = countCrossings(idx, pairs);
+    if(score <= bestScore){ bestScore = score; best = order.slice(); }
+    else { [order[i],order[j]] = [order[j],order[i]]; }
+  }
+  return best;
+}
+
+function getOrder(model, pathMode){
+  const key = state.activeLog + '|' + model.field + '|' + pathMode;
+  if(state.orderCache[key]) return state.orderCache[key];
+  const agg = pathMode === 'full' ? model.fullEdgesAgg : model.netEdgesAgg;
+  const pairs = uniquePairs(agg);
+  const ids = model.nodes.map(n=>n.id);
+  const order = bestOrder(ids, pairs);
+  state.orderCache[key] = order;
+  return order;
+}
+
+/* ============================================================
+   LAYOUTS -> node positions
+   ============================================================ */
+function layoutArc(order){
+  const innerW = W - MARGIN.left - MARGIN.right;
+  const y = H/2 + 40;
+  const pos = {};
+  order.forEach((id,i)=>{
+    const x = order.length===1 ? W/2 : MARGIN.left + (innerW * i/(order.length-1));
+    pos[id] = {x, y};
+  });
+  return pos;
+}
+
+function layoutCircular(order){
+  const cx = W/2, cy = H/2 + 10;
+  const r = Math.min(W,H)/2 - 130;
+  const pos = {};
+  const n = order.length;
+  order.forEach((id,i)=>{
+    const angle = (i/n) * 2*Math.PI - Math.PI/2;
+    pos[id] = {x: cx + r*Math.cos(angle), y: cy + r*Math.sin(angle), angle};
+  });
+  return pos;
+}
+
+function layoutForce(nodes, pairs){
+  const cx = W/2, cy = H/2 + 10;
+  const n = nodes.length;
+  const simNodes = nodes.map((nd,i)=>{
+    const angle = (i/n) * 2*Math.PI;
+    const r = 200;
+    return {id:nd.id, x: cx + r*Math.cos(angle), y: cy + r*Math.sin(angle)};
+  });
+  const links = pairs.map(p=>({source:p[0], target:p[1]}));
+  const sim = d3.forceSimulation(simNodes)
+    .force('link', d3.forceLink(links).id(d=>d.id).distance(210).strength(0.6))
+    .force('charge', d3.forceManyBody().strength(-620))
+    .force('center', d3.forceCenter(cx,cy))
+    .force('collide', d3.forceCollide(64))
+    .stop();
+  for(let i=0;i<400;i++) sim.tick();
+
+  // rescale the converged layout to make good, centered use of the canvas
+  const targetBox = { x0: MARGIN.left+30, x1: W-MARGIN.right-30, y0: MARGIN.top+20, y1: H-70 };
+  const xs = simNodes.map(d=>d.x), ys = simNodes.map(d=>d.y);
+  const minX = Math.min(...xs), maxX = Math.max(...xs);
+  const minY = Math.min(...ys), maxY = Math.max(...ys);
+  const spanX = Math.max(1, maxX-minX), spanY = Math.max(1, maxY-minY);
+  const scale = Math.min((targetBox.x1-targetBox.x0)/spanX, (targetBox.y1-targetBox.y0)/spanY, 1.6);
+  const midX = (minX+maxX)/2, midY = (minY+maxY)/2;
+  const targetMidX = (targetBox.x0+targetBox.x1)/2, targetMidY = (targetBox.y0+targetBox.y1)/2;
+
+  const pos = {};
+  simNodes.forEach(d=>{
+    pos[d.id] = {
+      x: targetMidX + (d.x-midX)*scale,
+      y: targetMidY + (d.y-midY)*scale
+    };
+  });
+  return pos;
+}
+
+/* ============================================================
+   RENDER: node-link layouts (arc / circular / force)
+   ============================================================ */
+function edgeColor(target, model){
+  const n = model.nodes.find(n=>n.id===target);
+  return n ? n.color : '#888';
+}
+
+const EDGE_GAP = 15; // px to pull the arrow-end back so it clears the node ring
+
+function pullBack(qx, qy, px, py, dist){
+  const dx = px-qx, dy = py-qy;
+  const len = Math.hypot(dx,dy) || 1;
+  return { x: px - (dx/len)*dist, y: py - (dy/len)*dist };
+}
+
+function jitterT(edge){
+  if(!edge || !edge._jCount || edge._jCount <= 1) return 0;
+  return (edge._jIndex/(edge._jCount-1)) - 0.5; // -0.5..0.5
+}
+
+function curvedPath(p1, p2, layout, edge){
+  let qx, qy;
+  const t = jitterT(edge);
+  if(layout === 'arc'){
+    const dx = p2.x - p1.x;
+    const dist = Math.abs(dx);
+    let lift = Math.min(dist*0.55, 230);
+    lift += t * Math.min(dist*0.18, 60);
+    qx = (p1.x+p2.x)/2;
+    qy = p1.y - lift;
+  } else if(layout === 'circular'){
+    const cx = W/2, cy = H/2 + 10;
+    const mx = (p1.x+p2.x)/2, my = (p1.y+p2.y)/2;
+    const pull = 0.32 + t*0.24;
+    qx = mx + (cx-mx)*pull;
+    qy = my + (cy-my)*pull;
+  } else {
+    const mx = (p1.x+p2.x)/2, my = (p1.y+p2.y)/2;
+    const dx = p2.x-p1.x, dy = p2.y-p1.y;
+    const nx = -dy, ny = dx;
+    const len = Math.hypot(nx,ny) || 1;
+    const bend = 14 + t*30;
+    qx = mx + (nx/len)*bend; qy = my + (ny/len)*bend;
+  }
+  const end = pullBack(qx, qy, p2.x, p2.y, EDGE_GAP);
+  return `M${p1.x},${p1.y} Q${qx},${qy} ${end.x},${end.y}`;
+}
+
+function buildDisplayEdges(model){
+  const agg = state.viewMode === 'aggregated';
+  const src = state.pathMode === 'full'
+    ? (agg ? model.fullEdgesAgg : model.fullEdges)
+    : (agg ? model.netEdgesAgg  : model.netEdges);
+  if(!agg){
+    // fan out edges that share the same source/target so overlapping
+    // individual records are visually distinguishable rather than
+    // perfectly overlapping into a single stroke.
+    const groups = new Map();
+    src.forEach(e=>{
+      const key = e.source+'|'+e.target;
+      if(!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(e);
+    });
+    groups.forEach(arr=> arr.forEach((e,i)=>{ e._jIndex = i; e._jCount = arr.length; }));
+  }
+  return src;
+}
+
+function renderNodeLink(){
+  gAxes.selectAll('*').remove();
+  gEdges.selectAll('path.tl').remove();
+  gEdges.selectAll('path.sankey-link').remove();
+  gNodes.selectAll('g.sankey-node').remove();
+  const model = state.model;
+  const order = getOrder(model, state.pathMode);
+
+  let newPos;
+  if(state.layout === 'arc') newPos = layoutArc(order);
+  else if(state.layout === 'circular') newPos = layoutCircular(order);
+  else {
+    const pairs = uniquePairs(state.pathMode==='full' ? model.fullEdgesAgg : model.netEdgesAgg);
+    newPos = layoutForce(model.nodes, pairs);
+  }
+
+  const oldPos = state.positions;
+  const hasOld = Object.keys(oldPos).length > 0;
+  const duration = hasOld ? 650 : 0;
+
+  animatePositions(oldPos, newPos, duration, (interp)=>{
+    drawEdges(model, interp);
+    drawNodes(model, interp, order);
+  }, ()=>{ state.positions = newPos; });
+}
+
+let activeTimer = null;
+function animatePositions(oldPos, newPos, duration, onFrame, onDone){
+  if(activeTimer) activeTimer.stop();
+  if(duration === 0){
+    onFrame(newPos);
+    onDone();
+    return;
+  }
+  const ease = d3.easeCubicInOut;
+  const t0 = performance.now();
+  activeTimer = d3.timer(()=>{
+    const t = Math.min(1, (performance.now()-t0)/duration);
+    const e = ease(t);
+    const interp = {};
+    Object.keys(newPos).forEach(id=>{
+      const a = oldPos[id] || newPos[id];
+      const b = newPos[id];
+      interp[id] = { x: a.x + (b.x-a.x)*e, y: a.y + (b.y-a.y)*e };
+    });
+    onFrame(interp);
+    if(t>=1){ activeTimer.stop(); onDone(); }
+  });
+}
+
+function drawNodes(model, pos, order){
+  const sel = gNodes.selectAll('g.node').data(model.nodes, d=>d.id);
+  const enter = sel.enter().append('g').attr('class','node').style('cursor','pointer');
+  enter.append('circle').attr('class','node-dot').attr('r', 7);
+  enter.append('circle').attr('class','node-ring').attr('r', 12).attr('fill','none').attr('stroke-width', 1.4);
+
+  const merged = enter.merge(sel);
+  merged.attr('transform', d=> `translate(${pos[d.id].x},${pos[d.id].y})`);
+  merged.select('.node-dot')
+    .attr('fill', d=> d.startOnly ? 'var(--panel)' : d.color)
+    .attr('stroke', d=> d.color)
+    .attr('stroke-width', d=> d.startOnly ? 1.6 : 0)
+    .attr('stroke-dasharray', d=> d.startOnly ? '2,2' : null);
+  merged.select('.node-ring').attr('stroke', d=> d.color).attr('opacity', 0.28);
+
+  // labels — placed via bounding-plate for legibility
+  merged.selectAll('.node-plate').remove();
+  merged.selectAll('text').remove();
+  merged.each(function(d, i){
+    const g = d3.select(this);
+    const p = pos[d.id];
+    let dx = 0, dy = -22;
+    if(state.layout === 'circular'){
+      const cx=W/2, cy=H/2+10;
+      const ang = Math.atan2(p.y-cy, p.x-cx);
+      dx = Math.cos(ang) * 62;
+      dy = Math.sin(ang) * 62;
+    } else if(state.layout === 'arc'){
+      const orderIdx = order ? order.indexOf(d.id) : i;
+      dy = (orderIdx % 2 === 0) ? -24 : 24;
+    }
+    const label = d.id.length > 20 ? d.id.slice(0,19)+'…' : d.id;
+    const textW = Math.max(30, label.length * 6.4 + 16);
+    g.append('rect').attr('class','node-plate')
+      .attr('x', dx - textW/2).attr('y', dy-11).attr('width', textW).attr('height', 20)
+      .attr('rx', 4);
+    g.append('text').attr('class','node-label')
+      .attr('x', dx).attr('y', dy+3).attr('text-anchor','middle')
+      .text(label);
+  });
+
+  merged.on('mouseenter', function(event,d){ showNodeTooltip(event, d, model); highlightNode(d.id, true); })
+        .on('mousemove', moveTooltip)
+        .on('mouseleave', function(event,d){ hideTooltip(); highlightNode(d.id, false); });
+
+  sel.exit().remove();
+}
+
+function highlightNode(id, on){
+  gEdges.selectAll('path').classed('dim', on).filter(function(){
+    const d = d3.select(this).datum();
+    return d && (d.source===id || d.target===id);
+  }).classed('dim', false).raise();
+  if(!on) gEdges.selectAll('path').classed('dim', false);
+}
+
+function drawEdges(model, pos){
+  const edges = buildDisplayEdges(model);
+  const agg = state.viewMode === 'aggregated';
+  const maxCount = agg ? d3.max(edges, e=>e.count) || 1 : 1;
+
+  const sel = gEdges.selectAll('path.edge').data(edges, (d,i)=> agg ? d.source+'>'+d.target : d.recordId+'-'+d.hop+'-'+d.source+'-'+d.target);
+
+  sel.exit().remove();
+  const enter = sel.enter().append('path').attr('class','edge').attr('fill','none');
+  const merged = enter.merge(sel);
+
+  merged
+    .attr('d', d=> curvedPath(pos[d.source], pos[d.target], state.layout, d))
+    .attr('stroke', d=> edgeColor(d.target, model))
+    .attr('stroke-width', d=> agg ? (2 + (d.count/maxCount)*9) : 1.5)
+    .attr('stroke-linecap','round')
+    .attr('marker-end','url(#arrow)')
+    .attr('opacity', d=> agg ? 0.8 : 0.45)
+    .style('cursor','pointer')
+    .on('mouseenter', function(event,d){ d3.select(this).attr('opacity',1).attr('stroke-width', agg ? (2+(d.count/maxCount)*9)+2 : 3); showEdgeTooltip(event,d,model); })
+    .on('mousemove', moveTooltip)
+    .on('mouseleave', function(event,d){ d3.select(this).attr('opacity', agg?0.8:0.45).attr('stroke-width', agg ? (2+(d.count/maxCount)*9) : 1.5); hideTooltip(); });
+}
+
+/* ============================================================
+   PASS CUTOFFS — reusable, row-indexed pass-boundary system.
+   A "cutoff" is a row index into model.fieldRows (original file
+   order). computePassSnapshots() is the one shared primitive:
+   given any model + any list of cutoffs, it returns, for every
+   record, its state as of each cutoff. Any future visualization
+   (from this file or the multi-CSV work to come) can reuse this
+   without touching the Sankey-specific rendering code below.
+   ============================================================ */
+function computePassSnapshots(model, cutoffs){
+  const sorted = cutoffs.slice().sort((a,b)=>a-b);
+  const rows = model.fieldRows;
+  const current = new Map();
+  const startOf = new Map();
+  model.records.forEach(r=> startOf.set(r.id, r.fullPath[0]));
+  const snapshots = sorted.map(()=> new Map());
+  let ptr = 0;
+  for(let i=0;i<=rows.length;i++){
+    while(ptr < sorted.length && sorted[ptr] === i){
+      model.records.forEach(r=>{
+        snapshots[ptr].set(r.id, current.has(r.id) ? current.get(r.id) : startOf.get(r.id));
+      });
+      ptr++;
+    }
+    if(i < rows.length){
+      const row = rows[i];
+      const key = row.rowId !== '' ? row.rowId : row.rowIndex;
+      current.set(key, row.newValue);
+    }
+  }
+  return sorted.map((cutoff, idx)=> ({ cutoff, states: snapshots[idx] }));
+}
+
+/* ============================================================
+   SANKEY (pass flow): N+2 columns —
+   before rating -> [state as of each pass cutoff] -> final
+   ============================================================ */
+function buildSankeyModel(model, cutoffs){
+  const snapshots = computePassSnapshots(model, cutoffs);
+  const numCols = snapshots.length + 2;
+
+  const perRecordValues = model.records.map(rec=>{
+    const values = [rec.fullPath[0]];
+    snapshots.forEach(s=> values.push(s.states.get(rec.id)));
+    values.push(rec.netPath[1]);
+    return { id: rec.id, values };
+  });
+
+  const orderIndex = id => model.nodes.findIndex(n=>n.id===id);
+  const nodeColor = id => (model.nodes.find(n=>n.id===id) || {}).color || '#888';
+
+  const columnMaps = Array.from({length:numCols}, ()=> new Map());
+  const linkMaps = Array.from({length:numCols-1}, ()=> new Map());
+
+  perRecordValues.forEach(({id, values})=>{
+    values.forEach((v,ci)=> columnMaps[ci].set(v, (columnMaps[ci].get(v)||0)+1));
+    for(let ci=0; ci<numCols-1; ci++){
+      const a = values[ci], b = values[ci+1];
+      const key = a+'\u2192'+b;
+      if(!linkMaps[ci].has(key)) linkMaps[ci].set(key, {source:a, target:b, value:0, records:[]});
+      const l = linkMaps[ci].get(key); l.value++; l.records.push(id);
+    }
+  });
+
+  function toColumnNodes(map, col){
+    return Array.from(map.entries())
+      .map(([id,total])=> ({ id, col, total, color: nodeColor(id) }))
+      .sort((a,b)=> orderIndex(a.id) - orderIndex(b.id));
+  }
+
+  return {
+    numCols,
+    columns: columnMaps.map((m,ci)=> toColumnNodes(m,ci)),
+    linkStages: linkMaps.map(m=> Array.from(m.values())),
+    total: model.records.length
+  };
+}
+
+function sankeyColumnHeaders(numCols){
+  const mid = numCols - 2;
+  const headers = ['Before rating'];
+  for(let i=0;i<mid;i++) headers.push(mid===1 ? 'After first pass' : `After pass ${i+1}`);
+  headers.push('Final categorization');
+  return headers;
+}
+
+function renderSankey(){
+  const model = state.model;
+  const total = model.fieldRows.length;
+  const cutoffs = state.passCutoffs.filter(c=> c>0 && c<total);
+  const sk = buildSankeyModel(model, cutoffs);
+  const orderIndex = id => model.nodes.findIndex(n=>n.id===id);
+  const numCols = sk.numCols;
+
+  const barW = 20;
+  const leftPad = 120, rightPad = 120;
+  const step = numCols>1 ? (W-leftPad-rightPad-barW)/(numCols-1) : 0;
+  const colX = d3.range(numCols).map(i=> leftPad + i*step);
+  const topY = 118, bottomY = H - 66;
+  const availH = bottomY - topY;
+  const gap = 10;
+
+  sankeyColumnHeaders(numCols).forEach((h,i)=>{
+    gAxes.append('text')
+      .attr('x', colX[i] + barW/2).attr('y', topY-28)
+      .attr('text-anchor','middle')
+      .attr('fill','var(--text-dim)').attr('font-size',12.5).attr('font-family','var(--font-body)')
+      .text(h);
+  });
+
+  // node rectangles per column, stacked top-to-bottom in canonical category order
+  const nodeRects = {};
+  sk.columns.forEach((col, ci)=>{
+    const colTotal = d3.sum(col, d=>d.total) || 1;
+    const totalGap = Math.max(0, col.length-1) * gap;
+    const scale = (availH - totalGap) / colTotal;
+    let y = topY;
+    col.forEach(node=>{
+      const h = Math.max(2, node.total*scale);
+      nodeRects[node.id+'|'+ci] = { x: colX[ci], y, h, w: barW, node, scale };
+      y += h + gap;
+    });
+  });
+
+  // stack link ribbons within each node's edge, ordered by the neighbor's canonical order
+  function layoutLinks(links, fromCol, toCol){
+    const outOffset = new Map(), inOffset = new Map();
+    const bySource = links.slice().sort((a,b)=> orderIndex(a.source)-orderIndex(b.source) || orderIndex(a.target)-orderIndex(b.target));
+    const byTarget = links.slice().sort((a,b)=> orderIndex(a.target)-orderIndex(b.target) || orderIndex(a.source)-orderIndex(b.source));
+
+    const sRange = new Map();
+    bySource.forEach(l=>{
+      const rect = nodeRects[l.source+'|'+fromCol];
+      const start = outOffset.has(l.source) ? outOffset.get(l.source) : rect.y;
+      const h = l.value * rect.scale;
+      sRange.set(l.source+'>'+l.target, [start, start+h]);
+      outOffset.set(l.source, start+h);
+    });
+    const tRange = new Map();
+    byTarget.forEach(l=>{
+      const rect = nodeRects[l.target+'|'+toCol];
+      const start = inOffset.has(l.target) ? inOffset.get(l.target) : rect.y;
+      const h = l.value * rect.scale;
+      tRange.set(l.source+'>'+l.target, [start, start+h]);
+      inOffset.set(l.target, start+h);
+    });
+
+    return links.map(l=>{
+      const key = l.source+'>'+l.target;
+      const [sy0,sy1] = sRange.get(key);
+      const [ty0,ty1] = tRange.get(key);
+      return {
+        ...l,
+        x0: nodeRects[l.source+'|'+fromCol].x + barW,
+        x1: nodeRects[l.target+'|'+toCol].x,
+        sy0, sy1, ty0, ty1
+      };
+    });
+  }
+
+  function ribbonPath(l){
+    const cx = (l.x0+l.x1)/2;
+    return `M${l.x0},${l.sy0} C${cx},${l.sy0} ${cx},${l.ty0} ${l.x1},${l.ty0} `+
+           `L${l.x1},${l.ty1} C${cx},${l.ty1} ${cx},${l.sy1} ${l.x0},${l.sy1} Z`;
+  }
+
+  // colour: stage 0 links take the colour of where they land (their first
+  // categorization); every later stage keeps that same colour flowing
+  // through, so you can trace a pass-1 bucket all the way to final even
+  // as it splits across later columns.
+  let allLinks = [];
+  sk.linkStages.forEach((links, stageIdx)=>{
+    const laidOut = layoutLinks(links, stageIdx, stageIdx+1);
+    const colorId = stageIdx === 0 ? 'target' : 'source';
+    allLinks.push(...laidOut.map(l=> ({...l, colorId: l[colorId], stage: stageIdx})));
+  });
+
+  gEdges.selectAll('path.sankey-link').data(allLinks).enter().append('path')
+    .attr('class','sankey-link')
+    .attr('d', ribbonPath)
+    .attr('fill', d=> (model.nodes.find(n=>n.id===d.colorId)||{}).color || '#888')
+    .attr('stroke', 'none')
+    .attr('opacity', 0.5)
+    .style('cursor','pointer')
+    .on('mouseenter', function(event,d){ d3.select(this).attr('opacity',0.82); showSankeyLinkTooltip(event,d,sk.total); })
+    .on('mousemove', moveTooltip)
+    .on('mouseleave', function(event,d){ d3.select(this).attr('opacity',0.5); hideTooltip(); });
+
+  const allRects = Object.values(nodeRects);
+  const nodeSel = gNodes.selectAll('g.sankey-node').data(allRects, d=> d.node.id+'|'+d.node.col)
+    .enter().append('g').attr('class','sankey-node');
+
+  nodeSel.append('rect')
+    .attr('x', d=>d.x).attr('y', d=>d.y)
+    .attr('width', d=>d.w).attr('height', d=>d.h)
+    .attr('rx', 3)
+    .attr('fill', d=> d.node.color)
+    .attr('stroke', 'var(--bg)').attr('stroke-width', 1)
+    .style('cursor','pointer')
+    .on('mouseenter', function(event,d){ showSankeyNodeTooltip(event,d,sk.total); })
+    .on('mousemove', moveTooltip)
+    .on('mouseleave', hideTooltip);
+
+  nodeSel.append('text')
+    .attr('x', d=> d.node.col===numCols-1 ? d.x-8 : d.x+d.w+8)
+    .attr('y', d=> d.y+d.h/2+4)
+    .attr('text-anchor', d=> d.node.col===numCols-1 ? 'end' : 'start')
+    .attr('fill','var(--text)').attr('font-size',12).attr('font-family','var(--font-body)')
+    .attr('paint-order','stroke').attr('stroke','var(--bg)').attr('stroke-width',4).attr('stroke-linejoin','round')
+    .text(d=> `${d.node.id.length>16 ? d.node.id.slice(0,15)+'…' : d.node.id} (${d.node.total})`);
+}
+
+function showSankeyNodeTooltip(event, d, grandTotal){
+  const pct = Math.round((d.node.total/grandTotal)*100);
+  showTip(`<b>${esc(d.node.id)}</b><br><span class="muted">${d.node.total} of ${grandTotal} records (${pct}%)</span>`, event);
+}
+function showSankeyLinkTooltip(event, d, grandTotal){
+  const pct = Math.round((d.value/grandTotal)*100);
+  showTip(`<b>${esc(d.source)} \u2192 ${esc(d.target)}</b><br><span class="muted">${d.value} records (${pct}%)</span>`, event);
+}
+
+/* ============================================================
+   TIMELINE LAYOUT
+   ============================================================ */
+function renderTimeline(){
+  gNodes.selectAll('*').remove();
+  gEdges.selectAll('*').remove();
+  gAxes.selectAll('*').remove();
+
+  const model = state.model;
+  const order = getOrder(model, state.pathMode);
+  const innerLeft = 150, innerRight = W-50, innerTop = 60, innerBottom = H-70;
+
+  const x = d3.scaleTime().domain([model.minTs, model.maxTs]).nice().range([innerLeft, innerRight]);
+  const y = d3.scalePoint().domain(order).range([innerTop, innerBottom]).padding(0.9);
+
+  // band gridlines + labels
+  order.forEach(id=>{
+    const n = model.nodes.find(n=>n.id===id);
+    gAxes.append('line').attr('x1', innerLeft).attr('x2', innerRight)
+      .attr('y1', y(id)).attr('y2', y(id))
+      .attr('stroke','var(--hairline-soft)').attr('stroke-width',1);
+    const label = gAxes.append('g').attr('transform',`translate(20,${y(id)})`);
+    label.append('circle').attr('r', n.startOnly?4:5)
+      .attr('fill', n.startOnly ? 'transparent' : n.color)
+      .attr('stroke', n.startOnly ? n.color : 'none')
+      .attr('stroke-dasharray', n.startOnly ? '2,2' : null)
+      .attr('stroke-width', 1.4);
+    label.append('text').attr('x', 12).attr('y', 4)
+      .attr('fill','var(--text-dim)').attr('font-size', 11.5)
+      .text(id.length>18 ? id.slice(0,17)+'…' : id);
+  });
+
+  const xAxis = d3.axisBottom(x).ticks(6).tickSizeOuter(0);
+  if(state.usesSyntheticSteps) xAxis.tickFormat(d=> 'step '+stepFromTimestamp(d));
+  gAxes.append('g').attr('transform', `translate(0,${innerBottom+18})`).call(xAxis)
+    .call(g=>{
+      g.select('.domain').attr('stroke','var(--hairline)');
+      g.selectAll('text').attr('fill','var(--text-faint)').attr('font-size',10.5);
+      g.selectAll('line').attr('stroke','var(--hairline)');
+    });
+
+  const line = d3.line().x(d=>d.x).y(d=>y(d.state)).curve(d3.curveStepAfter);
+  const STUB = 12; // small px stub before a record's own first event, purely visual
+
+  const paths = model.records.map(rec=>{
+    const startX = Math.max(x.range()[0], x(rec.firstTs) - STUB);
+    let pts;
+    if(state.pathMode === 'full'){
+      pts = [{x:startX, state: rec.fullPath[0]}];
+      rec.events.forEach((e,i)=> pts.push({x: x(new Date(e.timestamp)), state: rec.fullPath[i+1]}));
+    } else {
+      pts = [{x:startX, state: rec.netPath[0]}, {x: x(rec.lastTs), state: rec.netPath[1]}];
+    }
+    return {id: rec.id, pts, finalState: rec.netPath[1]};
+  });
+
+  gEdges.selectAll('path.tl').data(paths, d=>d.id).enter().append('path')
+    .attr('class','tl')
+    .attr('fill','none')
+    .attr('d', d=> line(d.pts))
+    .attr('stroke', d=> edgeColor(d.finalState, model))
+    .attr('stroke-width', 1.5)
+    .attr('opacity', 0.5)
+    .style('cursor','pointer')
+    .on('mouseenter', function(event,d){ d3.select(this).attr('opacity',1).attr('stroke-width',3); showTimelineTooltip(event,d,model); })
+    .on('mousemove', moveTooltip)
+    .on('mouseleave', function(event,d){ d3.select(this).attr('opacity',0.5).attr('stroke-width',1.5); hideTooltip(); });
+}
+
+/* ============================================================
+   TOOLTIPS
+   ============================================================ */
+function moveTooltip(event){
+  const rect = canvasWrap.getBoundingClientRect();
+  const x = event.clientX - rect.left + 14;
+  const y = event.clientY - rect.top + 14;
+  tooltip.style('left', x+'px').style('top', y+'px');
+}
+function showTip(html, event){
+  tooltip.html(html).classed('visible', true);
+  moveTooltip(event);
+}
+function hideTooltip(){ tooltip.classed('visible', false); }
+
+function showNodeTooltip(event, d, model){
+  const into = model.netEdgesAgg.filter(e=>e.target===d.id).reduce((s,e)=>s+e.count,0);
+  const finalCount = model.records.filter(r=>r.netPath[1]===d.id).length;
+  showTip(`<b>${esc(d.id)}</b><br><span class="muted">${d.startOnly? 'Starting / default state' : (finalCount+' records currently here')}</span>`, event);
+}
+function showEdgeTooltip(event, d, model){
+  if(state.viewMode === 'aggregated'){
+    const ids = d.records.slice(0,10).join(', ') + (d.records.length>10 ? `, +${d.records.length-10} more` : '');
+    showTip(`<b>${esc(d.source)} \u2192 ${esc(d.target)}</b><br><span class="muted">${d.count} record${d.count>1?'s':''}</span><br><span class="muted">${esc(ids)}</span>`, event);
+  } else {
+    showTip(`<b>${esc(d.source)} \u2192 ${esc(d.target)}</b><br><span class="muted">Record ${esc(String(d.recordId))} &middot; ${formatTs(d.timestamp)}</span>`, event);
+  }
+}
+function showTimelineTooltip(event, d, model){
+  const seq = d.pts.map(p=>p.state).join(' \u2192 ');
+  showTip(`<b>Record ${esc(String(d.id))}</b><br><span class="muted">${esc(seq)}</span>`, event);
+}
+function esc(s){ return String(s).replace(/[&<>]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+
+/* ============================================================
+   LEGEND / STATS
+   ============================================================ */
+function renderLegend(){
+  const model = state.model;
+  const box = document.getElementById('legendSwatches');
+  box.innerHTML = '';
+  model.nodes.forEach(n=>{
+    const finalCount = model.records.filter(r=>r.netPath[1]===n.id).length;
+    const el = document.createElement('div');
+    el.className = 'swatch';
+    el.innerHTML = `<input type="color" class="dot-input ${n.startOnly?'start':''}" value="${n.color}" data-node-id="${escHtml(n.id)}" title="Click to set the color for &quot;${escHtml(n.id)}&quot;">` +
+      `<span>${escHtml(n.id)}${n.startOnly ? ' <span style="color:var(--text-faint)">(start)</span>' : ' <span style="color:var(--text-faint)">('+finalCount+')</span>'}</span>`;
+    box.appendChild(el);
+  });
+  const resetBtn = document.getElementById('resetColorsBtn');
+  resetBtn.style.display = Object.keys(state.colorOverrides).length > 0 ? 'inline-block' : 'none';
+
+  const stats = document.getElementById('statsLine');
+  const transitionCount = model.fullEdges.length;
+  stats.textContent = `${model.field} \u00b7 ${model.records.length} records \u00b7 ${transitionCount} transitions \u00b7 ${model.nodes.length} states`;
+  const logSuffix = state.datasets.length > 1
+    ? (state.activeLog === COMBINED_KEY ? ' \u2014 all logs combined' : ` \u2014 ${state.activeLog}`)
+    : '';
+  document.getElementById('datasetSummary').textContent = `${model.records.length} records tracked across ${model.nodes.length} states, field "${model.field}"${logSuffix}`;
+}
+function escHtml(s){ return String(s).replace(/[&<>]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+
+function setColorOverride(id, hex){
+  state.colorOverrides[id] = hex;
+  if(state.model) applyColorOverrides(state.model);
+  render();
+}
+function resetColorOverrides(){
+  state.colorOverrides = {};
+  if(state.model) applyColorOverrides(state.model);
+  render();
+}
+
+/* ============================================================
+   MAIN RENDER DISPATCH
+   ============================================================ */
+function render(){
+  if(!state.model) return;
+  updateToggleAvailability();
+  updatePassSliderVisibility();
+  if(state.layout === 'timeline'){
+    gNodes.selectAll('*').remove();
+    state.positions = {};
+    renderTimeline();
+  } else if(state.layout === 'sankey'){
+    gNodes.selectAll('*').remove();
+    gEdges.selectAll('*').remove();
+    gAxes.selectAll('*').remove();
+    state.positions = {};
+    renderSankey();
+  } else {
+    renderNodeLink();
+  }
+  renderLegend();
+}
+
+function updateToggleAvailability(){
+  const pathBtns = document.querySelectorAll('.seg[data-path]');
+  const viewBtns = document.querySelectorAll('.seg[data-view]');
+  const isTimeline = state.layout === 'timeline';
+  const isSankey = state.layout === 'sankey';
+
+  viewBtns.forEach(b=>{
+    b.disabled = isSankey || (isTimeline && b.dataset.view === 'aggregated');
+    b.title = isSankey ? 'Sankey always shows the aggregated first-pass \u2192 final flow'
+      : (isTimeline ? 'Timeline always shows individual records' : '');
+  });
+  pathBtns.forEach(b=>{
+    b.disabled = isSankey;
+    b.title = isSankey ? 'Sankey always shows the aggregated first-pass \u2192 final flow' : '';
+  });
+  if(isTimeline && state.viewMode === 'aggregated'){
+    state.viewMode = 'individual';
+    document.querySelectorAll('.seg[data-view]').forEach(b=> b.classList.toggle('active', b.dataset.view==='individual'));
+  }
+}
+
+/* ============================================================
+   CSV LOADING
+   ============================================================ */
+function normalizeRows(rows){
+  return rows.map(r=>({
+    rowId: (r.rowId ?? '').toString().trim(),
+    rowIndex: (r.rowIndex ?? '').toString().trim(),
+    field: (r.field ?? 'value').toString().trim(),
+    oldValue: (r.oldValue ?? '').toString().trim(),
+    newValue: (r.newValue ?? '').toString().trim(),
+    timestamp: r.timestamp
+  })).filter(r=> r.oldValue !== '' && r.newValue !== '' && r.timestamp);
+}
+
+function parseCsvString(text){
+  return new Promise(resolve=>{
+    Papa.parse(text, {
+      header: true, skipEmptyLines: true,
+      complete: results => resolve(normalizeRows(results.data))
+    });
+  });
+}
+
+function parseCsvFile(file){
+  return new Promise(resolve=>{
+    Papa.parse(file, {
+      header: true, skipEmptyLines: true,
+      complete: results => resolve(normalizeRows(results.data))
+    });
+  });
+}
+
+async function loadDatasetsFromFiles(fileList){
+  const files = Array.from(fileList);
+  const datasets = await Promise.all(files.map(async f=>{
+    const rows = await parseCsvFile(f);
+    const name = f.name.replace(/\.csv$/i, '') || f.name;
+    return { name, rows: rows.map(r=> ({...r, source: name})) };
+  }));
+  applyDatasets(datasets);
+}
+
+async function loadSampleDataset(){
+  const rows = await parseCsvString(SAMPLE_CSV);
+  applyDatasets([{ name: 'Sample', rows: rows.map(r=> ({...r, source:'Sample'})) }]);
+}
+
+function applyDatasets(datasets){
+  const usable = datasets.filter(d=> d.rows.length > 0);
+  if(usable.length === 0){
+    alert('No usable rows found. Expecting columns: rowId, field, oldValue, newValue, timestamp');
+    return;
+  }
+  state.datasets = usable;
+  state.activeLog = usable[0].name;
+  state.orderCache = {};
+  refreshLogSelect();
+  applyActiveLog();
+}
+
+// Merges every dataset into one row list when "All logs combined" is active.
+// Row IDs are prefixed per source so records from different files never
+// collide. Two merge strategies are available (state.mergeMode):
+//  - 'timestamp': sort by each row's real timestamp. Only meaningful if the
+//    raters' clocks/sessions are actually comparable.
+//  - 'step': ignore real time; each rater's Nth change becomes synthetic
+//    "step N", so asynchronous raters still line up by how far each had
+//    progressed through their own log, not by when they happened to work.
+function getEffectiveRows(){
+  if(state.datasets.length === 0) return [];
+  if(state.activeLog === COMBINED_KEY){
+    const useSteps = state.mergeMode === 'step';
+    const merged = [];
+    state.datasets.forEach(ds=>{
+      ds.rows.forEach((r, stepIdx)=> merged.push({
+        ...r,
+        rowId: ds.name + ' #' + r.rowId,
+        rowIndex: ds.name + ' #' + r.rowIndex,
+        timestamp: useSteps ? stepTimestamp(stepIdx) : r.timestamp
+      }));
+    });
+    merged.sort((a,b)=> new Date(a.timestamp) - new Date(b.timestamp));
+    state.usesSyntheticSteps = useSteps;
+    return merged;
+  }
+  state.usesSyntheticSteps = false;
+  const ds = state.datasets.find(d=> d.name === state.activeLog);
+  return ds ? ds.rows : [];
+}
+
+function refreshLogSelect(){
+  const sel = document.getElementById('logSelect');
+  sel.innerHTML = '';
+  state.datasets.forEach(ds=>{
+    const opt = document.createElement('option');
+    opt.value = ds.name; opt.textContent = `${ds.name} (${ds.rows.length})`;
+    sel.appendChild(opt);
+  });
+  if(state.datasets.length > 1){
+    const opt = document.createElement('option');
+    opt.value = COMBINED_KEY; opt.textContent = 'All logs combined';
+    sel.appendChild(opt);
+  }
+  sel.value = state.activeLog;
+  sel.style.display = state.datasets.length > 1 ? 'inline-block' : 'none';
+  document.getElementById('mergeModeGroup').style.display = state.datasets.length > 1 ? 'flex' : 'none';
+}
+
+function applyActiveLog(){
+  state.raw = getEffectiveRows();
+  state.orderCache = {};
+  const newFields = Array.from(new Set(state.raw.map(r=>r.field)));
+  state.fields = newFields;
+  populateFieldSelect();
+  const keepField = state.field && newFields.includes(state.field) ? state.field : newFields[0];
+  setField(keepField);
+}
+
+function populateFieldSelect(){
+  const sel = document.getElementById('fieldSelect');
+  sel.innerHTML = '';
+  state.fields.forEach(f=>{
+    const opt = document.createElement('option');
+    opt.value = f; opt.textContent = f;
+    sel.appendChild(opt);
+  });
+  sel.value = state.field && state.fields.includes(state.field) ? state.field : state.fields[0];
+  sel.style.display = state.fields.length > 1 ? 'inline-block' : 'none';
+}
+
+// Layers state.colorOverrides on top of a freshly-built model's default
+// colors. Called after every buildModel() so overrides survive field/log
+// switches and CSV reloads; a category is matched purely by its name, so
+// the same override applies wherever that name reappears.
+function applyColorOverrides(model){
+  model.nodes.forEach(n=>{
+    n.color = state.colorOverrides[n.id] || n.defaultColor;
+  });
+}
+
+function setField(field){
+  state.field = field;
+  state.model = buildModel(state.raw, field);
+  applyColorOverrides(state.model);
+  state.positions = {};
+  const total = state.model.fieldRows.length;
+  state.passCutoffs = total > 1 ? [Math.round(total/2)] : [];
+  rebuildPassSlider();
+  render();
+}
+
+/* ============================================================
+   PASS-CUTOFF SLIDER UI
+   Generic control over state.passCutoffs. Any layout that opts
+   into LAYOUT_USES_PASS_CUTOFFS gets this panel automatically;
+   the panel itself knows nothing about Sankey specifically.
+   ============================================================ */
+function updatePassSliderVisibility(){
+  const panel = document.getElementById('passSliderPanel');
+  const shouldShow = !!LAYOUT_USES_PASS_CUTOFFS[state.layout] && state.model && state.model.fieldRows.length > 1;
+  panel.classList.toggle('visible', shouldShow);
+  const addBtn = document.getElementById('addPassBtn');
+  if(state.model) addBtn.disabled = state.passCutoffs.length >= state.model.fieldRows.length - 1;
+}
+
+function rebuildPassSlider(){
+  if(!state.model) return;
+  const track = document.getElementById('passSliderTrack');
+  track.querySelectorAll('.pass-handle').forEach(h=>h.remove());
+
+  state.passCutoffs.sort((a,b)=>a-b).forEach((cutoff, idx)=>{
+    const handle = document.createElement('div');
+    handle.className = 'pass-handle';
+    const removeX = document.createElement('span');
+    removeX.className = 'remove-x';
+    removeX.textContent = '\u00d7';
+    removeX.title = 'Remove this boundary';
+    removeX.addEventListener('click', (e)=>{ e.stopPropagation(); removePassCutoff(idx); });
+    handle.appendChild(removeX);
+    handle.addEventListener('pointerdown', (e)=> startPassDrag(e, idx));
+    track.appendChild(handle);
+  });
+
+  updatePassSliderVisual();
+  updatePassSliderVisibility();
+}
+
+function updatePassSliderVisual(){
+  if(!state.model) return;
+  const total = state.model.fieldRows.length;
+  const track = document.getElementById('passSliderTrack');
+  const handles = track.querySelectorAll('.pass-handle');
+  const sorted = state.passCutoffs.slice().sort((a,b)=>a-b);
+  sorted.forEach((c,i)=>{ if(handles[i]) handles[i].style.left = (total? (c/total*100) : 0)+'%'; });
+
+  const regionsEl = document.getElementById('passSliderRegions');
+  const bounds = [0, ...sorted, total];
+  regionsEl.innerHTML = '';
+  for(let i=0;i<bounds.length-1;i++){
+    const w = total ? ((bounds[i+1]-bounds[i])/total*100) : 0;
+    const div = document.createElement('div');
+    div.className = 'pass-region';
+    div.style.width = w+'%';
+    regionsEl.appendChild(div);
+  }
+
+  const labelsEl = document.getElementById('passSliderLabels');
+  labelsEl.innerHTML = sorted.map((c,i)=>{
+    const row = state.model.fieldRows[Math.min(c, total-1)];
+    const ts = row ? formatTs(row.timestamp) : '';
+    return `<span>Boundary ${i+1}: row ${c} of ${total}${ts ? ' \u00b7 '+ts : ''}</span>`;
+  }).join('');
+}
+
+let passDragCtx = null;
+function startPassDrag(e, idx){
+  e.preventDefault();
+  const track = document.getElementById('passSliderTrack');
+  passDragCtx = { idx, rect: track.getBoundingClientRect() };
+  document.addEventListener('pointermove', onPassDrag);
+  document.addEventListener('pointerup', endPassDrag);
+}
+function onPassDrag(e){
+  if(!passDragCtx || !state.model) return;
+  const total = state.model.fieldRows.length;
+  const { idx, rect } = passDragCtx;
+  let frac = (e.clientX - rect.left) / rect.width;
+  frac = Math.max(0, Math.min(1, frac));
+  let val = Math.round(frac*total);
+  const arr = state.passCutoffs; // kept sorted
+  const lo = idx>0 ? arr[idx-1]+1 : 1;
+  const hi = idx<arr.length-1 ? arr[idx+1]-1 : total-1;
+  val = Math.max(lo, Math.min(hi, val));
+  if(val !== arr[idx]){
+    arr[idx] = val;
+    updatePassSliderVisual();
+    render();
+  }
+}
+function endPassDrag(){
+  passDragCtx = null;
+  document.removeEventListener('pointermove', onPassDrag);
+  document.removeEventListener('pointerup', endPassDrag);
+}
+
+function addPassCutoff(){
+  if(!state.model) return;
+  const total = state.model.fieldRows.length;
+  const sorted = [0, ...state.passCutoffs.slice().sort((a,b)=>a-b), total];
+  let bestStart=0, bestEnd=total, bestSize=-1;
+  for(let i=0;i<sorted.length-1;i++){
+    const size = sorted[i+1]-sorted[i];
+    if(size>bestSize){ bestSize=size; bestStart=sorted[i]; bestEnd=sorted[i+1]; }
+  }
+  const val = Math.round((bestStart+bestEnd)/2);
+  if(val<=bestStart || val>=bestEnd) return; // no room left
+  state.passCutoffs.push(val);
+  state.passCutoffs.sort((a,b)=>a-b);
+  rebuildPassSlider();
+  render();
+}
+
+function removePassCutoff(idx){
+  if(state.passCutoffs.length <= 1) return; // Sankey needs at least one boundary
+  state.passCutoffs.splice(idx,1);
+  rebuildPassSlider();
+  render();
+}
+
+document.getElementById('addPassBtn').addEventListener('click', addPassCutoff);
+
+// Event delegation: the legend is rebuilt on every render(), so listeners
+// live on the stable parent container rather than being re-attached per swatch.
+document.getElementById('legendSwatches').addEventListener('input', (e)=>{
+  if(!e.target.matches('input[type="color"]')) return;
+  setColorOverride(e.target.dataset.nodeId, e.target.value);
+});
+document.getElementById('resetColorsBtn').addEventListener('click', resetColorOverrides);
+
+/* ============================================================
+   WIRE UP CONTROLS
+   ============================================================ */
+document.getElementById('csvInput').addEventListener('change', (e)=>{
+  const files = e.target.files;
+  if(!files || !files.length) return;
+  loadDatasetsFromFiles(files);
+  e.target.value = ''; // allow re-selecting the same file(s) later
+});
+
+document.getElementById('logSelect').addEventListener('change', (e)=>{
+  state.activeLog = e.target.value;
+  applyActiveLog();
+});
+
+document.getElementById('fieldSelect').addEventListener('change', (e)=> setField(e.target.value));
+
+document.querySelectorAll('.tab').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    state.layout = btn.dataset.layout;
+    render();
+  });
+});
+
+document.querySelectorAll('.seg[data-path]').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.seg[data-path]').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    state.pathMode = btn.dataset.path;
+    render();
+  });
+});
+
+document.querySelectorAll('.seg[data-view]').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    if(btn.disabled) return;
+    document.querySelectorAll('.seg[data-view]').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    state.viewMode = btn.dataset.view;
+    render();
+  });
+});
+
+document.querySelectorAll('.seg[data-merge]').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.seg[data-merge]').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    state.mergeMode = btn.dataset.merge;
+    if(state.activeLog === COMBINED_KEY) applyActiveLog(); // only the combined view is affected
+  });
+});
+
+/* ============================================================
+   BOOTSTRAP WITH SAMPLE DATA
+   ============================================================ */
+const SAMPLE_CSV = `rowId,rowIndex,field,oldValue,newValue,timestamp
+1,0,rating,provide rating,off i guess,2026-09-05T12:53:11.035Z
+2,1,rating,provide rating,off i guess,2026-09-05T12:53:29.517Z
+3,2,rating,provide rating,surely on,2026-09-05T12:53:39.375Z
+4,3,rating,provide rating,reasonably on,2026-09-05T12:53:54.921Z
+5,4,rating,provide rating,off for sure,2026-09-05T12:54:04.572Z
+6,5,rating,provide rating,off i guess,2026-09-05T12:54:14.419Z
+7,6,rating,provide rating,reasonably on,2026-09-05T12:56:04.808Z
+8,7,rating,provide rating,off i guess,2026-09-05T12:56:15.515Z
+8,7,rating,off i guess,reasonably on,2026-09-05T12:56:17.638Z
+8,7,rating,reasonably on,off i guess,2026-09-05T12:56:20.448Z
+9,8,rating,provide rating,off i guess,2026-09-05T12:57:42.387Z
+10,9,rating,provide rating,reasonably on,2026-09-05T12:59:20.247Z
+11,10,rating,provide rating,off i guess,2026-09-05T13:00:25.720Z
+12,11,rating,provide rating,off i guess,2026-09-05T13:00:40.202Z
+13,12,rating,provide rating,surely on,2026-09-05T13:00:47.372Z
+14,13,rating,provide rating,off for sure,2026-09-05T13:01:43.243Z
+15,14,rating,provide rating,reasonably on,2026-09-05T13:01:49.893Z
+16,15,rating,provide rating,off i guess,2026-09-05T13:01:57.361Z
+17,16,rating,provide rating,reasonably on,2026-09-05T13:02:29.944Z
+18,17,rating,provide rating,reasonably on,2026-09-05T13:03:01.024Z
+19,18,rating,provide rating,reasonably on,2026-09-05T13:03:12.173Z
+20,19,rating,provide rating,off i guess,2026-09-05T13:03:23.163Z
+21,20,rating,provide rating,off for sure,2026-09-05T13:03:30.364Z
+22,21,rating,provide rating,off i guess,2026-09-05T13:03:38.061Z
+23,22,rating,provide rating,off i guess,2026-09-05T13:03:51.954Z
+24,23,rating,provide rating,off for sure,2026-09-05T13:04:21.164Z
+25,24,rating,provide rating,reasonably on,2026-09-05T13:04:35.603Z
+26,25,rating,provide rating,reasonably on,2026-09-05T13:04:44.532Z
+27,26,rating,provide rating,off i guess,2026-09-05T13:04:59.297Z
+28,27,rating,provide rating,surely on,2026-09-05T13:05:07.654Z
+28,27,rating,surely on,reasonably on,2026-09-05T13:05:16.524Z
+29,28,rating,provide rating,surely on,2026-09-05T13:05:23.091Z
+30,29,rating,provide rating,off i guess,2026-09-05T13:05:34.565Z
+31,30,rating,provide rating,surely on,2026-09-05T13:05:43.702Z
+32,31,rating,provide rating,off i guess,2026-09-05T13:06:03.415Z
+33,32,rating,provide rating,reasonably on,2026-09-05T13:06:11.744Z
+34,33,rating,provide rating,off i guess,2026-09-05T13:06:21.163Z
+34,33,rating,off i guess,reasonably on,2026-09-05T13:06:29.024Z
+35,34,rating,provide rating,reasonably on,2026-09-05T13:06:36.043Z
+36,35,rating,provide rating,reasonably on,2026-09-05T13:06:46.512Z
+37,36,rating,provide rating,off for sure,2026-09-05T13:06:52.818Z
+38,37,rating,provide rating,off i guess,2026-09-05T13:07:02.277Z
+39,38,rating,provide rating,reasonably on,2026-09-05T13:07:38.541Z
+40,39,rating,provide rating,surely on,2026-09-05T13:07:44.927Z
+41,40,rating,provide rating,reasonably on,2026-09-05T13:07:53.146Z
+42,41,rating,provide rating,reasonably on,2026-09-05T13:08:01.155Z
+43,42,rating,provide rating,off for sure,2026-09-05T13:08:10.273Z
+44,43,rating,provide rating,off i guess,2026-09-05T13:09:01.405Z
+45,44,rating,provide rating,reasonably on,2026-09-05T13:11:06.050Z
+46,45,rating,provide rating,off for sure,2026-09-05T13:11:12.238Z
+47,46,rating,provide rating,surely on,2026-09-05T13:11:51.214Z
+48,47,rating,provide rating,off i guess,2026-09-05T13:12:00.111Z
+49,48,rating,provide rating,reasonably on,2026-09-05T13:12:49.753Z
+50,49,rating,provide rating,reasonably on,2026-09-05T13:12:58.703Z
+51,50,rating,provide rating,reasonably on,2026-09-05T13:13:10.090Z
+52,51,rating,provide rating,reasonably on,2026-09-05T13:13:20.821Z
+53,52,rating,provide rating,off for sure,2026-09-05T13:13:27.899Z
+54,53,rating,provide rating,off i guess,2026-09-05T13:13:34.475Z
+55,54,rating,provide rating,off i guess,2026-09-05T13:13:48.179Z
+56,55,rating,provide rating,off i guess,2026-09-05T13:15:01.987Z
+57,56,rating,provide rating,off for sure,2026-09-05T13:15:09.835Z
+58,57,rating,provide rating,off i guess,2026-09-05T13:15:15.414Z
+59,58,rating,provide rating,reasonably on,2026-09-05T13:15:21.531Z
+60,59,rating,provide rating,off i guess,2026-09-05T13:15:28.580Z
+61,60,rating,provide rating,off for sure,2026-09-05T13:16:02.029Z
+62,61,rating,provide rating,off for sure,2026-09-05T13:16:32.971Z
+63,62,rating,provide rating,off i guess,2026-09-05T13:16:38.230Z
+64,63,rating,provide rating,off i guess,2026-09-05T13:16:46.613Z
+65,64,rating,provide rating,reasonably on,2026-09-05T13:16:54.823Z
+66,65,rating,provide rating,reasonably on,2026-09-05T13:17:09.244Z
+67,66,rating,provide rating,off i guess,2026-09-05T13:17:16.953Z
+68,67,rating,provide rating,surely on,2026-09-05T13:17:25.802Z
+69,68,rating,provide rating,surely on,2026-09-05T13:17:31.559Z
+70,69,rating,provide rating,reasonably on,2026-09-05T13:17:38.166Z
+71,70,rating,provide rating,surely on,2026-09-05T13:17:46.615Z
+72,71,rating,provide rating,off i guess,2026-09-05T13:18:15.511Z
+73,72,rating,provide rating,off i guess,2026-09-05T13:18:46.088Z
+74,73,rating,provide rating,off i guess,2026-09-05T13:19:09.103Z
+75,74,rating,provide rating,reasonably on,2026-09-05T13:19:16.643Z
+76,75,rating,provide rating,off for sure,2026-09-05T13:19:24.883Z
+77,76,rating,provide rating,off i guess,2026-09-05T13:19:34.810Z
+78,77,rating,provide rating,off for sure,2026-09-05T13:19:44.581Z
+79,78,rating,provide rating,off i guess,2026-09-05T13:20:18.564Z
+80,79,rating,provide rating,reasonably on,2026-09-05T13:20:27.383Z
+81,80,rating,provide rating,surely on,2026-09-05T13:20:45.876Z
+82,81,rating,provide rating,off i guess,2026-09-05T13:20:51.483Z
+83,82,rating,provide rating,reasonably on,2026-09-05T13:21:00.051Z
+84,83,rating,provide rating,off i guess,2026-09-05T13:21:20.338Z
+85,84,rating,provide rating,reasonably on,2026-09-05T13:21:46.460Z
+86,85,rating,provide rating,off for sure,2026-09-05T13:21:53.329Z
+87,86,rating,provide rating,off i guess,2026-09-05T13:22:01.412Z
+88,87,rating,provide rating,off i guess,2026-09-05T13:22:18.675Z
+89,88,rating,provide rating,off for sure,2026-09-05T13:22:32.417Z
+`;
+
+loadSampleDataset();
+
+})();
+</script>
+</body>
+</html>

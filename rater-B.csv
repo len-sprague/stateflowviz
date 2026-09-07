@@ -1,0 +1,7 @@
+rowId,rowIndex,field,oldValue,newValue,timestamp
+1,0,rating,provide rating,reasonably on,2026-01-01T10:00:00.000Z
+2,1,rating,provide rating,off for sure,2026-01-01T10:01:00.000Z
+3,2,rating,provide rating,off for sure,2026-01-01T10:02:00.000Z
+4,3,rating,provide rating,reasonably on,2026-01-01T10:03:00.000Z
+5,4,rating,provide rating,surely on,2026-01-01T10:04:00.000Z
+5,4,rating,surely on,reasonably on,2026-01-01T10:05:00.000Z
