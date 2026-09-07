@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ .Title }} &ndash; {{ .Site.Title }}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root{
+            --bg:#0F1115; --panel:#171B22; --panel-2:#1D222B;
+            --hairline:#2A2F3A; --text:#EDEFF3; --text-dim:#8A93A3;
+            --focus:#4FA3D1;
+            --font-display:'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+            --font-body:'Inter', ui-sans-serif, system-ui, sans-serif;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: var(--font-body);
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+        }
+        .page-header {
+            padding: 32px 40px 24px;
+            border-bottom: 1px solid var(--hairline);
+        }
+        .back-link {
+            display: inline-block;
+            margin-bottom: 16px;
+            color: var(--focus);
+            text-decoration: none;
+            font-size: 13px;
+        }
+        .back-link:hover { opacity: 0.8; }
+        .page-header h1 {
+            font-family: var(--font-display);
+            font-weight: 600;
+            font-size: 26px;
+            margin-bottom: 8px;
+        }
+        .page-header p {
+            color: var(--text-dim);
+            font-size: 14px;
+            max-width: 640px;
+            line-height: 1.5;
+        }
+        .gallery {
+            padding: 32px 40px;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 24px;
+            max-width: 1100px;
+        }
+        .card {
+            background: var(--panel);
+            border: 1px solid var(--hairline);
+            border-radius: 10px;
+            padding: 24px;
+            transition: border-color 0.2s ease, transform 0.2s ease;
+            text-decoration: none;
+            color: inherit;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .card:hover {
+            border-color: var(--focus);
+            transform: translateY(-2px);
+        }
+        .card-title {
+            font-family: var(--font-display);
+            font-size: 16px;
+            font-weight: 600;
+        }
+        .card-desc {
+            font-size: 13px;
+            color: var(--text-dim);
+            line-height: 1.55;
+            flex: 1;
+        }
+        .card-cta {
+            margin-top: 6px;
+            font-size: 13px;
+            color: var(--focus);
+            font-weight: 500;
+        }
+        .page-footer {
+            text-align: center;
+            padding: 40px;
+        }
+        .page-footer a {
+            color: var(--text-dim);
+            text-decoration: none;
+            font-size: 13px;
+        }
+        .page-footer a:hover { color: var(--focus); }
+    </style>
+</head>
+<body>
+    <div class="page-header">
+        <a class="back-link" href="{{ "/" | absURL }}">&larr; Full Editor</a>
+        <h1>{{ .Title }}</h1>
+        <p>{{ .Description }}</p>
+    </div>
+    <div class="gallery">
+        {{ range .Pages }}
+        <a class="card" href="{{ .Permalink }}">
+            <div class="card-title">{{ .Title }}</div>
+            <div class="card-desc">{{ .Description }}</div>
+            <div class="card-cta">Explore &rarr;</div>
+        </a>
+        {{ end }}
+    </div>
+    <div class="page-footer">
+        <a href="{{ "/" | absURL }}">Open Full Editor &mdash; upload and explore your own CSV(s)</a>
+    </div>
+</body>
+</html>

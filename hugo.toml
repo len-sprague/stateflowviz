@@ -1,0 +1,9 @@
+baseURL = 'https://len-sprague.github.io/stateflowviz/'
+languageCode = 'en-us'
+title = 'State Flow Mapper'
+
+[params]
+  description = 'Visualize how categorical values change over time across one or more logs.'
+
+[markup.goldmark.renderer]
+  unsafe = true
