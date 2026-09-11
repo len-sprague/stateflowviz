@@ -4,8 +4,8 @@ Visualize how a categorical field changes over time — built to compare change
 logs from one or more raters/annotators side by side (arc, circular,
 force-directed, timeline, and Sankey pass-flow layouts).
 
-Live site: https://len-sprague.github.io/stateflowviz/
-Examples: https://len-sprague.github.io/stateflowviz/examples/
+Live site: https://lensprague.com/stateflowviz/
+Examples: https://lensprague.com/stateflowviz/examples/
 
 ## Quick start
 

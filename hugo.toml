@@ -1,4 +1,4 @@
-baseURL = 'https://len-sprague.github.io/stateflowviz/'
+baseURL = 'https://lensprague.com/stateflowviz/'
 languageCode = 'en-us'
 title = 'State Flow Mapper'
 
